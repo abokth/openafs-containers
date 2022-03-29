@@ -1,0 +1,24 @@
+FROM umlbuild AS build
+
+RUN dnf -y install git-core gcc autoconf automake libtool make flex bison
+RUN dnf -y install glibc-devel krb5-devel perl-devel ncurses-devel pam-devel
+RUN dnf -y install perl-devel perl-ExtUtils-Embed perl-Test-Simple
+
+RUN mkdir -p /src
+WORKDIR /src
+RUN curl -OL http://openafs.org/dl/openafs/1.8.8.1/openafs-1.8.8.1-src.tar.gz
+RUN sha256sum openafs-1.8.8.1-src.tar.gz | fgrep 85bf9e3f49f1b3b9f3828f0538830d73256479e92083dfeaa13cca1f12130b41
+
+RUN tar xf openafs-1.8.8.1-src.tar.gz
+WORKDIR /src/openafs-1.8.8.1
+RUN ./configure --prefix=/app ARCH=um && make ARCH=um -j 4 && make ARCH=um install
+
+FROM umlnet
+
+RUN dnf -y install kmod
+RUN dnf clean all
+COPY --from=build /app /app
+ADD etc /app/etc
+ADD ld-app.conf /etc/ld.so.conf.d/app.conf
+ADD profile-app.sh /etc/profile.d/app.sh
+RUN /usr/sbin/ldconfig
